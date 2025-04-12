@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>保護者 LINE 連携</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      text-align: center;
+    }
+    input {
+      font-size: 1.2rem;
+      padding: 0.6rem;
+      width: 80%;
+      max-width: 300px;
+      margin-top: 1rem;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.6rem 1.2rem;
+      font-size: 1.2rem;
+    }
+    #status {
+      margin-top: 2rem;
+      white-space: pre-wrap;
+      text-align: left;
+      font-size: 1rem;
+      background: #f2f2f2;
+      padding: 1rem;
+      border-radius: 6px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <h2>保護者 LINE 連携</h2>
+  <p>お子さまの登録番号（P_recordID）を入力してください：</p>
+  <input id="pRecordId" type="text" placeholder="例：P123456" />
+  <br />
+  <button onclick="linkGuardian()">送信する</button>
+  <div id="status">🔄 初期化待機中...</div>
+
+  <script>
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbxMYm4trvN8imkt3eK7hykzZRQ6jh_JzrQnGS0eyl2hPKf19DyWR_XKpMRBHfwrF7Qb/exec';
+    let userId = "";
+
+    async function linkGuardian() {
+      const pRecordId = document.getElementById("pRecordId").value.trim();
+      const status = document.getElementById("status");
+      if (!pRecordId) {
+        status.textContent = "❌ 番号を入力してください";
+        return;
+      }
+
+      try {
+        status.textContent = "⏳ LIFF ID取得中...";
+        const liffRes = await fetch(`${gasUrl}?recordCode=${encodeURIComponent(pRecordId)}&mode=liff`);
+        const liffId = await liffRes.text();
+
+        if (!liffId || liffId.includes("ERROR")) {
+          status.textContent = "❌ LIFF IDの取得に失敗しました";
+          return;
+        }
+
+        status.textContent += `\n✅ LIFF ID: ${liffId}`;
+
+        await liff.init({ liffId });
+
+        if (!liff.isLoggedIn()) {
+          status.textContent += "\n🔐 ログイン中...";
+          liff.login({ redirectUri: location.href });
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        userId = profile.userId;
+        status.textContent += `\n👤 userId取得: ${userId}\n📨 送信中...`;
+
+        await fetch(`${gasUrl}?recordCode=${encodeURIComponent(pRecordId)}&userId=${userId}`, {
+          method: 'GET',
+          mode: 'no-cors'
+        });
+
+        status.textContent += `\n✅ 登録要求を送信しました。LINE連携が完了しました。`;
+
+      } catch (e) {
+        console.error(e);
+        status.textContent = "❌ エラー発生: " + e.message;
+      }
+    }
+  </script>
+</body>
+</html>
